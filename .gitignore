@@ -1,0 +1,11 @@
+# dados e saídas (guardar fora do git: Drive / HD, com data)
+*.csv
+*.pdf
+*.xml
+_parcial/
+# Python / macOS
+__pycache__/
+*.pyc
+.venv/
+.DS_Store
+._*

@@ -1,6 +1,6 @@
 """Junta CSVs do claims_extractor e deduplica por pedido, preferindo a concessão.
 
-Uso: python deduplicar_concessao.py saida.csv extracao1.csv [extracao2.csv ...]
+Uso: python scripts/deduplicar_concessao.py saida.csv extracao1.csv [extracao2.csv ...]
 Cada extracao.csv precisa do <nome>_relatorio.csv ao lado (para mapear arquivo -> pedido).
 
 Regra: agrupa pelo número do pedido (sem prefixo, dígito verificador e kind). Se o grupo

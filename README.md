@@ -16,15 +16,15 @@ pip install -r requirements.txt     # pymupdf
 
 | Etapa | Script | Saída |
 |---|---|---|
-| 1. Extração | `claims_extractor.py` | `<saida>.csv`, `<saida>_relatorio.csv`, `<saida>_pulados.csv` |
-| 1b. Pastas grandes | `rodar_em_blocos.py` | `_parcial/` (retomável) |
-| 2. Junção e deduplicação | `deduplicar_concessao.py` | CSV final + `<final>_dedup.csv` |
-| 3. Título, resumo e IPC | `coletar_patentes_v4.py` | `patentes_v4_tai.csv`, `patentes_v4_nao_encontrados.csv` |
+| 1. Extração | `scripts/claims_extractor.py` | `<saida>.csv`, `<saida>_relatorio.csv`, `<saida>_pulados.csv` |
+| 1b. Pastas grandes | `scripts/rodar_em_blocos.py` | `_parcial/` (retomável) |
+| 2. Junção e deduplicação | `scripts/deduplicar_concessao.py` | CSV final + `<final>_dedup.csv` |
+| 3. Título, resumo e IPC | `scripts/coletar_patentes_v4.py` | `patentes_v4_tai.csv`, `patentes_v4_nao_encontrados.csv` |
 
 ### 1. Extração
 
 ```bash
-python claims_extractor.py <pasta_ou_pdf> -o reivindicacoes.csv
+python scripts/claims_extractor.py <pasta_ou_pdf> -o reivindicacoes.csv
     [--formato-id completo|numero]   # BR1120180673331-A2 (padrão) | 112018067333
     [--por-documento]                # uma linha por pedido
     [--validar-xml]                  # compara com o XML ST.36 que estiver na pasta do PDF
@@ -46,7 +46,7 @@ o nome do arquivo. Arquivos `._*` do macOS são ignorados.
 ### 1b. Pastas grandes
 
 ```bash
-python rodar_em_blocos.py <pasta> <segundos>
+python scripts/rodar_em_blocos.py <pasta> <segundos>
 ```
 
 Processa durante o tempo indicado e grava em `_parcial/` (reivindicações, relatório e
@@ -56,7 +56,7 @@ execução pula os PDFs já feitos.
 ### 2. Junção e deduplicação
 
 ```bash
-python deduplicar_concessao.py final.csv extracao1.csv [extracao2.csv ...]
+python scripts/deduplicar_concessao.py final.csv extracao1.csv [extracao2.csv ...]
 ```
 
 Cada extração precisa do `_relatorio.csv` ao lado. O script agrupa pelo número do pedido
@@ -67,7 +67,7 @@ duplicados entre pastas entram uma vez. `final_dedup.csv` documenta cada decisã
 ### 3. Título, resumo e IPC (Manticore)
 
 ```bash
-python coletar_patentes_v4.py --host <servidor>     # ou MANTICORE_HOST=<servidor>
+python scripts/coletar_patentes_v4.py --host <servidor>     # ou MANTICORE_HOST=<servidor>
 ```
 
 Lê `pedidos_final.csv` (`pedido`, `numero_base`, `prefixo`, `dv`, `kind`) e casa

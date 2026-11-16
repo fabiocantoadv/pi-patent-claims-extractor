@@ -4,7 +4,7 @@ Coleta título, resumo e IPCs no Manticore (tabela patentes_v4) para os pedidos 
 pedidos_final.csv, casando numero_base com application_number_norm.
 
 Uso (no Terminal do Mac, dentro desta pasta):
-    python3 coletar_patentes_v4.py --host <servidor>     # padrão: $MANTICORE_HOST ou localhost
+    python3 scripts/coletar_patentes_v4.py --host <servidor>     # padrão: $MANTICORE_HOST ou localhost
 
 Saídas:
     patentes_v4_tai.csv          pedido, numero_base, application_number, title, abstract,

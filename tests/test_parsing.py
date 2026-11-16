@@ -1,7 +1,7 @@
 """Testes das heurísticas de texto (sem PDFs). Rodar: python3 -m pytest -q  ou  python3 tests/test_parsing.py"""
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 import claims_extractor as ce
 import deduplicar_concessao as dd  # noqa: F401  (garante que importa)
 

@@ -8,7 +8,7 @@ Saída: CSV com duas colunas
     reivindicacao -> texto completo da reivindicação, com a numeração ("1. Uma memória ...")
 
 Uso:
-    python claims_extractor.py <pasta_ou_pdf> [-o reivindicacoes.csv]
+    python scripts/claims_extractor.py <pasta_ou_pdf> [-o reivindicacoes.csv]
            [--formato-id completo|numero] [--por-documento]
            [--relatorio relatorio.csv] [--validar-xml] [--excel]
 

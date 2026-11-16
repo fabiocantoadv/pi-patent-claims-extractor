@@ -4,7 +4,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import claims_extractor as ce
 entrada, limite = Path(sys.argv[1]), float(sys.argv[2])
-dirp = Path(__file__).resolve().parent / "_parcial"; dirp.mkdir(exist_ok=True)
+dirp = Path(__file__).resolve().parent.parent / "_parcial"; dirp.mkdir(exist_ok=True)
 lista = dirp / "lista.txt"
 if not lista.exists():
     pdfs = sorted(str(p) for p in entrada.rglob("*.pdf") if not p.name.startswith("._"))

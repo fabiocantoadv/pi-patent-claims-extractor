@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import os
 import re
 import sys
 import unicodedata
@@ -436,6 +437,97 @@ def linha_pulado(rel: dict) -> dict:
     m = RE_NUM_ARQUIVO.match(Path(rel["arquivo"]).stem)
     return {"numero": m.group(2) if m else Path(rel["arquivo"]).stem, "pedido": rel["pedido"], "motivo": rel["status"],
             "detalhe": rel.get("obs", ""), "arquivo": rel["arquivo"]}
+
+
+# ------------------------------------------------------------------ extração incremental
+ARQ_REIV = "reivindicacoes.csv"
+ARQ_REL = "reivindicacoes_relatorio.csv"
+ARQ_PUL = "reivindicacoes_pulados.csv"
+CAMPOS_REL = ["arquivo", "pedido", "status", "n_reivindicacoes", "paginas", "n_secoes",
+              "n_xml", "f1_xml", "obs", "bytes_csv"]
+
+
+def _relatorio_valido(caminho: Path) -> list[dict]:
+    """Linhas íntegras do relatório de uma execução anterior. Para na primeira linha
+    truncada (queda durante a gravação) ou de formato desconhecido."""
+    if not caminho.exists():
+        return []
+    with open(caminho, encoding="utf-8", newline="") as f:
+        linhas = list(csv.DictReader(f))
+    ok = []
+    for r in linhas:
+        if None in r or None in r.values() or not str(r.get("bytes_csv") or "").isdigit():
+            break
+        ok.append(r)
+    return ok
+
+
+def extrair_incremental(entrada: Path, pasta: Path, redo: bool = False,
+                        formato_id: str = "completo") -> Counter:
+    """Extrai todos os PDFs de `entrada` gravando em `pasta` a cada PDF, e retoma de onde
+    parou numa nova chamada.
+
+    Grava reivindicacoes.csv, reivindicacoes_relatorio.csv e reivindicacoes_pulados.csv.
+    O relatório guarda, por PDF, o tamanho do CSV após as suas reivindicações (bytes_csv):
+    se a execução cair entre as duas gravações, a retomada trunca o CSV nesse ponto e
+    nenhuma reivindicação fica duplicada. Os PDFs são identificados pelo caminho relativo
+    a `entrada`. Com redo=True, descarta o que já foi extraído e recomeça do zero.
+    Devolve a contagem de status de todos os PDFs da pasta."""
+    pasta.mkdir(parents=True, exist_ok=True)
+    f_reiv, f_rel, f_pul = pasta / ARQ_REIV, pasta / ARQ_REL, pasta / ARQ_PUL
+    if redo:
+        for f in (f_reiv, f_rel, f_pul):
+            f.unlink(missing_ok=True)
+
+    feitos = _relatorio_valido(f_rel)
+    if feitos:
+        tamanho = int(feitos[-1]["bytes_csv"])
+        if f_reiv.exists() and f_reiv.stat().st_size >= tamanho:
+            with open(f_reiv, "r+b") as f:
+                f.truncate(tamanho)              # descarta reivindicações sem linha no relatório
+        else:
+            feitos = []                          # CSV inconsistente com o relatório: recomeça
+    if not feitos:
+        with open(f_reiv, "w", newline="", encoding="utf-8") as f:
+            csv.writer(f).writerow(["pedido", "reivindicacao"])
+    with open(f_rel, "w", newline="", encoding="utf-8") as f:   # reescreve só com linhas íntegras
+        w = csv.DictWriter(f, fieldnames=CAMPOS_REL)
+        w.writeheader()
+        w.writerows(feitos)
+
+    chave = lambda p: p.relative_to(entrada).as_posix()
+    pdfs = sorted(p for p in entrada.rglob("*.pdf") if not p.name.startswith("._"))
+    ja = {r["arquivo"] for r in feitos}
+    pendentes = [p for p in pdfs if chave(p) not in ja]
+    if feitos:
+        print(f"  {len(feitos)} PDFs já extraídos, reaproveitados (use --redo para refazer); "
+              f"{len(pendentes)} a processar", file=sys.stderr)
+
+    with open(f_reiv, "a", newline="", encoding="utf-8") as fo, \
+         open(f_rel, "a", newline="", encoding="utf-8") as fr:
+        wo = csv.writer(fo)
+        wr = csv.DictWriter(fr, fieldnames=CAMPOS_REL)
+        try:
+            for n, pdf in enumerate(pendentes, 1):
+                linhas, rel = processar(pdf, formato_id, False)
+                rel["arquivo"] = chave(pdf)
+                wo.writerows(linhas)
+                fo.flush()
+                rel["bytes_csv"] = os.fstat(fo.fileno()).st_size
+                wr.writerow(rel)
+                fr.flush()
+                feitos.append(rel)
+                print(f"[{n}/{len(pendentes)}] {rel['pedido']:<22} {rel['status']:<14} "
+                      f"{rel['n_reivindicacoes']:>3} reiv.", file=sys.stderr)
+        finally:                                 # também ao interromper: pulados em dia com o relatório
+            with open(f_pul, "w", newline="", encoding="utf-8") as fp:
+                wp = csv.DictWriter(fp, fieldnames=CAMPOS_PULADOS)
+                wp.writeheader()
+                wp.writerows(linha_pulado(r) for r in feitos if not r["status"].startswith("ok"))
+
+    c = Counter(r["status"] for r in feitos)
+    print(f"\n{len(feitos)} PDFs | " + ", ".join(f"{k}: {v}" for k, v in c.most_common()), file=sys.stderr)
+    return c
 
 
 def main(argv=None) -> int:

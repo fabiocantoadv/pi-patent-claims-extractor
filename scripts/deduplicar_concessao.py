@@ -27,10 +27,8 @@ def numero_base(arquivo: str) -> str:
         return dig[:7]
     return dig[:12]
 
-def main():
-    if len(sys.argv) < 3:
-        sys.exit(__doc__)
-    saida, entradas = Path(sys.argv[1]), [Path(p) for p in sys.argv[2:]]
+def deduplicar(saida: Path, entradas: list[Path]) -> None:
+    """Junta as extrações em `entradas` e grava `saida` (+ `<saida>_dedup.csv`)."""
     docs = {}                                        # pedido -> dict(base, kind, n, origem)
     linhas = defaultdict(list)
     for e in entradas:
@@ -45,7 +43,7 @@ def main():
         for pid, r in usados.items():
             kind = pid.rsplit("-", 1)[1] if "-" in pid else ""
             docs[pid] = {"base": numero_base(r["arquivo"]), "kind": kind,
-                         "n": len(linhas[pid]), "origem": e.name}
+                         "n": len(linhas[pid]), "origem": f"{e.parent.name}/{e.name}"}
 
     grupos = defaultdict(list)
     for pid, d in docs.items():
@@ -73,6 +71,12 @@ def main():
     print("descartados por kind:", dict(Counter(docs[p]['kind'] or 'sem' for p in descartados)))
     print("mantidos por origem:", dict(Counter(docs[p]['origem'] for p in escolhidos)))
     print("linhas no CSV final:", sum(len(linhas[p]) for p in escolhidos))
+
+
+def main():
+    if len(sys.argv) < 3:
+        sys.exit(__doc__)
+    deduplicar(Path(sys.argv[1]), [Path(p) for p in sys.argv[2:]])
 
 
 if __name__ == "__main__":

@@ -14,6 +14,7 @@ Só usa a biblioteca padrão do Python; só faz SELECT.
 """
 import argparse, csv, json, os, sys, urllib.request
 from collections import defaultdict
+from pathlib import Path
 
 CAMPOS = ["application_number_norm", "application_number", "title", "abstract",
           "ipc_txt", "classification", "first_subclass", "nature", "status", "country_code"]
@@ -28,30 +29,25 @@ def sql(host, porta, consulta):
         raise RuntimeError(bloco["error"])
     return bloco.get("data", [])
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--host", default=os.environ.get("MANTICORE_HOST", "localhost"))
-    ap.add_argument("--porta", type=int, default=9308)
-    ap.add_argument("--tabela", default="patentes_v4")
-    ap.add_argument("--entrada", default="pedidos_final.csv")
-    ap.add_argument("--lote", type=int, default=200)
-    a = ap.parse_args()
-
-    pedidos = list(csv.DictReader(open(a.entrada, encoding="utf-8")))
+def coletar(host, porta, tabela, entrada, saida_dir=".", lote=200):
+    """Consulta o Manticore para os pedidos de `entrada` e grava os dois CSVs em `saida_dir`.
+    Devolve (encontrados, total)."""
+    saida_dir = Path(saida_dir); saida_dir.mkdir(parents=True, exist_ok=True)
+    pedidos = list(csv.DictReader(open(entrada, encoding="utf-8")))
     bases = sorted({p["numero_base"] for p in pedidos if p["numero_base"].isdigit()})
     achados = defaultdict(list)
-    for i in range(0, len(bases), a.lote):
-        lote = bases[i:i + a.lote]
-        lista = ",".join(f"'{b}'" for b in lote)          # só dígitos: sem risco de injeção
-        q = (f"SELECT {', '.join(CAMPOS)} FROM {a.tabela} "
+    for i in range(0, len(bases), lote):
+        bloco = bases[i:i + lote]
+        lista = ",".join(f"'{b}'" for b in bloco)          # só dígitos: sem risco de injeção
+        q = (f"SELECT {', '.join(CAMPOS)} FROM {tabela} "
              f"WHERE application_number_norm IN ({lista}) "
-             f"LIMIT {a.lote * 5} OPTION max_matches={a.lote * 5}")
-        for r in sql(a.host, a.porta, q):
+             f"LIMIT {lote * 5} OPTION max_matches={lote * 5}")
+        for r in sql(host, porta, q):
             achados[r["application_number_norm"]].append(r)
-        print(f"  {min(i + a.lote, len(bases))}/{len(bases)} números consultados", file=sys.stderr)
+        print(f"  {min(i + lote, len(bases))}/{len(bases)} números consultados", file=sys.stderr)
 
-    with open("patentes_v4_tai.csv", "w", newline="", encoding="utf-8") as f, \
-         open("patentes_v4_nao_encontrados.csv", "w", newline="", encoding="utf-8") as fn:
+    with open(saida_dir / "patentes_v4_tai.csv", "w", newline="", encoding="utf-8") as f, \
+         open(saida_dir / "patentes_v4_nao_encontrados.csv", "w", newline="", encoding="utf-8") as fn:
         w = csv.writer(f); wn = csv.writer(fn)
         w.writerow(["pedido", "numero_base", "application_number", "title", "abstract", "ipc_txt",
                     "ipc_json", "first_subclass", "nature", "status", "n_registros"])
@@ -74,7 +70,20 @@ def main():
             w.writerow([p["pedido"], p["numero_base"], r["application_number"], r["title"], r["abstract"],
                         r["ipc_txt"], ipcs, r["first_subclass"], r["nature"], r["status"], len(regs)])
     print(f"\nencontrados: {enc}/{len(pedidos)} | não encontrados: {len(pedidos) - enc}", file=sys.stderr)
-    print("arquivos: patentes_v4_tai.csv, patentes_v4_nao_encontrados.csv", file=sys.stderr)
+    print(f"arquivos em {saida_dir}: patentes_v4_tai.csv, patentes_v4_nao_encontrados.csv", file=sys.stderr)
+    return enc, len(pedidos)
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--host", default=os.environ.get("MANTICORE_HOST", "localhost"))
+    ap.add_argument("--porta", type=int, default=9308)
+    ap.add_argument("--tabela", default="patentes_v4")
+    ap.add_argument("--entrada", default="pedidos_final.csv")
+    ap.add_argument("--lote", type=int, default=200)
+    a = ap.parse_args()
+    coletar(a.host, a.porta, a.tabela, a.entrada, ".", a.lote)
+
 
 if __name__ == "__main__":
     main()

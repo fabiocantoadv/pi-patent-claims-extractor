@@ -2,6 +2,8 @@
 *.csv
 *.pdf
 *.xml
+saidas/
+samples/
 _parcial/
 # Python / macOS
 __pycache__/

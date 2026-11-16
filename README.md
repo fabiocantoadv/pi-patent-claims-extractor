@@ -25,7 +25,7 @@ pip install -r requirements.txt     # pymupdf
 ### Rodar tudo de uma vez (orquestrador)
 
 ```bash
-python scripts/pipeline.py -i <pasta_de_lotes> -o <pasta_de_saida> [--excel]
+python scripts/pipeline.py -i <pasta_de_lotes> -o <pasta_de_saida> [--excel] [--redo]
     [--manticore --host <servidor> [--porta 9308] [--tabela patentes_v4]]
 ```
 
@@ -44,6 +44,15 @@ isso, ela não roda. Se o Manticore falhar, as etapas 1 e 2 já estão gravadas.
 ```
 
 Os CSVs de `extracoes/` e `dedup/` ficam sem BOM, que é o que as etapas seguintes leem.
+
+**Retomada.** A extração grava a cada PDF. Se o processo for interrompido (queda, Ctrl+C),
+rodar o mesmo comando de novo continua de onde parou: os PDFs já extraídos são
+reaproveitados e os novos da pasta são processados. Isso vale para qualquer volume e não
+precisa de opção. Depois de mudar o código do extrator ou trocar PDFs, use `--redo` para
+descartar as extrações existentes em `extracoes/` e refazer tudo; sem ela, os resultados
+antigos são mantidos. O relatório ganha a coluna `bytes_csv`, que a retomada usa para
+descartar reivindicações gravadas sem o registro do PDF (queda no meio da gravação).
+
 As etapas abaixo também podem ser rodadas isoladamente.
 
 ### 1. Extração
@@ -68,7 +77,10 @@ O ID vem da linha (21)/(11) da capa: número, dígito verificador e kind (A2, B1
 E2, F1). Ele só é aceito quando confere com o número do nome do arquivo; senão, usa-se
 o nome do arquivo. Arquivos `._*` do macOS são ignorados.
 
-### 1b. Pastas grandes
+### 1b. Pastas grandes (legado)
+
+O orquestrador (`pipeline.py`) já grava a cada PDF e retoma sozinho, então este script
+só é necessário para quem usa a extração isolada com limite de tempo por execução.
 
 ```bash
 python scripts/rodar_em_blocos.py <pasta> <segundos>

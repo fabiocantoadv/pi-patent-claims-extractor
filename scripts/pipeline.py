@@ -3,7 +3,7 @@
 pipeline — orquestra as etapas do extrator e organiza as saídas em pastas.
 
 Uso:
-    python scripts/pipeline.py -i <pasta_de_lotes> -o <pasta_de_saida> [--excel]
+    python scripts/pipeline.py -i <pasta_de_lotes> -o <pasta_de_saida> [--excel] [--redo]
            [--manticore --host <servidor> [--porta 9308] [--tabela patentes_v4]]
 
 Entrada (-i): uma pasta cujas subpastas de primeiro nível são os lotes (uma RPI cada, ex.:
@@ -11,7 +11,7 @@ samples/20180508, samples/20261020), com PDFs em qualquer nível abaixo delas. S
 subpastas com PDFs, a própria pasta é tratada como um único lote.
 
 Etapas:
-    1. extração      scripts/claims_extractor.py   (um por lote)
+    1. extração      scripts/claims_extractor.py   (um por lote; grava a cada PDF e retoma)
     2. deduplicação  scripts/deduplicar_concessao.py (cruza todos os lotes)
     3. Manticore     scripts/coletar_patentes_v4.py  (opcional: só com --manticore/--host)
 
@@ -22,6 +22,10 @@ Saídas (em -o, que é criada se não existir):
     excel/...   cópias com BOM (UTF-8) para abrir no Excel (só com --excel)
 
 Os CSVs de extracoes/ e dedup/ ficam sem BOM, que é o que as etapas seguintes leem.
+
+Retomada: a extração grava a cada PDF. Se for interrompida, rodar o mesmo comando de novo
+continua de onde parou, e os PDFs já extraídos são reaproveitados. Depois de mudar o código
+do extrator (ou trocar PDFs), use --redo para descartar o que existe e extrair tudo de novo.
 """
 from __future__ import annotations
 
@@ -80,6 +84,9 @@ def main(argv=None) -> int:
     ap.add_argument("-o", "--saida", type=Path, required=True,
                     help="pasta de saída (criada se não existir)")
     ap.add_argument("--excel", action="store_true", help="gera também cópias com BOM em <saida>/excel/")
+    ap.add_argument("--redo", action="store_true",
+                    help="descarta as extrações existentes em <saida>/extracoes/ e refaz tudo "
+                         "(sem ela, os PDFs já extraídos são reaproveitados)")
     ap.add_argument("--manticore", action="store_true",
                     help="inclui a etapa 3 (título, resumo e IPC no Manticore); requer --host")
     ap.add_argument("--host", help="servidor Manticore (ou variável MANTICORE_HOST); informá-lo já ativa a etapa 3")
@@ -105,10 +112,9 @@ def main(argv=None) -> int:
     csvs = []
     for lote in lotes:
         pasta = saida / "extracoes" / lote.name
-        pasta.mkdir(parents=True, exist_ok=True)
         print(f"\n=== [1/{3 if usar_manticore else 2}] Extração do lote {lote.name} -> {pasta}", file=sys.stderr)
-        ce.main([str(lote), "-o", str(pasta / "reivindicacoes.csv")])
-        csvs.append(pasta / "reivindicacoes.csv")
+        ce.extrair_incremental(lote, pasta, redo=args.redo)
+        csvs.append(pasta / ce.ARQ_REIV)
 
     # 2. deduplicação cruzando os lotes
     pasta_dedup = saida / "dedup" / rotulo

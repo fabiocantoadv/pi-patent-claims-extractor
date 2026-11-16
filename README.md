@@ -26,6 +26,7 @@ pip install -r requirements.txt     # pymupdf
 
 ```bash
 python scripts/pipeline.py -i <pasta_de_lotes> -o <pasta_de_saida> [--excel] [--redo]
+    [--only extract|consolidate]
     [--manticore --host <servidor> [--porta 9308] [--tabela patentes_v4]]
 ```
 
@@ -52,6 +53,24 @@ precisa de opção. Depois de mudar o código do extrator ou trocar PDFs, use `-
 descartar as extrações existentes em `extracoes/` e refazer tudo; sem ela, os resultados
 antigos são mantidos. O relatório ganha a coluna `bytes_csv`, que a retomada usa para
 descartar reivindicações gravadas sem o registro do PDF (queda no meio da gravação).
+
+**Um lote por vez (`--only`).** Para volumes grandes, em que os PDFs são baixados, extraídos
+e apagados lote a lote, o pipeline pode rodar em duas partes:
+
+```bash
+# para cada lote: coloque-o em <entrada>/<nome_do_lote>/ e extraia
+python scripts/pipeline.py -i <entrada> -o <pasta_de_saida> --only extract
+# ... apague os PDFs do lote; as extrações continuam em <saida>/extracoes/
+
+# no final, uma vez: deduplica e (opcional) consulta o Manticore sobre TODOS os lotes extraídos
+python scripts/pipeline.py -o <pasta_de_saida> --only consolidate [--host <servidor> --tabela <tabela>]
+```
+
+O nome da subpasta de cada lote vira o nome da pasta em `extracoes/`. A consolidação não
+precisa dos PDFs nem de `-i`, e a deduplicação cruza todos os lotes (um A2 de uma RPI perde
+para o B1 de outra). Sem `--only`, o pipeline faz tudo para os lotes da entrada, como antes.
+`--only extract` não combina com as opções do Manticore, e `--only consolidate` não combina
+com `--redo`.
 
 As etapas abaixo também podem ser rodadas isoladamente.
 

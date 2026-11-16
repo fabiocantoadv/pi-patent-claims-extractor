@@ -16,10 +16,35 @@ pip install -r requirements.txt     # pymupdf
 
 | Etapa | Script | Saída |
 |---|---|---|
+| 0. Orquestrador | `scripts/pipeline.py` | pastas `extracoes/`, `dedup/`, `tac/`, `excel/` |
 | 1. Extração | `scripts/claims_extractor.py` | `<saida>.csv`, `<saida>_relatorio.csv`, `<saida>_pulados.csv` |
 | 1b. Pastas grandes | `scripts/rodar_em_blocos.py` | `_parcial/` (retomável) |
 | 2. Junção e deduplicação | `scripts/deduplicar_concessao.py` | CSV final + `<final>_dedup.csv` |
 | 3. Título, resumo e IPC | `scripts/coletar_patentes_v4.py` | `patentes_v4_tai.csv`, `patentes_v4_nao_encontrados.csv` |
+
+### Rodar tudo de uma vez (orquestrador)
+
+```bash
+python scripts/pipeline.py -i <pasta_de_lotes> -o <pasta_de_saida> [--excel]
+    [--manticore --host <servidor> [--porta 9308] [--tabela patentes_v4]]
+```
+
+`-i` e `-o` são obrigatórios (entrada e saída ficam fora do git, então não há padrão). A
+pasta de entrada tem um lote por subpasta (uma RPI cada, ex.: `samples/20180508`). O
+pipeline extrai cada lote, deduplica cruzando todos e, só se você pedir, completa com o
+Manticore. Informar `--host` (ou `--manticore` com `MANTICORE_HOST`) liga a etapa 3; sem
+isso, ela não roda. Se o Manticore falhar, as etapas 1 e 2 já estão gravadas.
+
+```
+<pasta_de_saida>/
+├── extracoes/<lote>/   reivindicacoes.csv, _relatorio.csv, _pulados.csv
+├── dedup/<data>_<entrada>/   final.csv (corpus), final_dedup.csv (decisões)
+├── tac/<data>_<entrada>/     pedidos_final.csv, patentes_v4_tai.csv, ...  (só com Manticore)
+└── excel/              cópias com BOM para abrir no Excel (só com --excel)
+```
+
+Os CSVs de `extracoes/` e `dedup/` ficam sem BOM, que é o que as etapas seguintes leem.
+As etapas abaixo também podem ser rodadas isoladamente.
 
 ### 1. Extração
 

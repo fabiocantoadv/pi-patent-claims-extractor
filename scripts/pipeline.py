@@ -3,7 +3,7 @@
 pipeline — orquestra as etapas do extrator e organiza as saídas em pastas.
 
 Uso:
-    python scripts/pipeline.py -i <pasta_de_lotes> -o <pasta_de_saida> [--excel] [--redo]
+    python scripts/pipeline.py -i <pasta_de_lotes> -o <pasta_de_saida> [--excel] [--redo] [--workers N]
            [--manticore --host <servidor> [--porta 9308] [--tabela patentes_v4]]
     python scripts/pipeline.py -i <pasta_de_lotes> -o <pasta_de_saida> --only extract
     python scripts/pipeline.py -o <pasta_de_saida> --only consolidate [--host <servidor> ...]
@@ -108,6 +108,9 @@ def main(argv=None) -> int:
     ap.add_argument("--redo", action="store_true",
                     help="descarta as extrações existentes em <saida>/extracoes/ e refaz tudo "
                          "(sem ela, os PDFs já extraídos são reaproveitados)")
+    ap.add_argument("--workers", type=int, default=1,
+                    help="PDFs extraídos ao mesmo tempo, em processos separados (padrão: 1). Em máquinas "
+                         "com vários núcleos, use algo como núcleos-1; o resultado gravado não muda")
     ap.add_argument("--manticore", action="store_true",
                     help="inclui a etapa 3 (título, resumo e IPC no Manticore); requer --host")
     ap.add_argument("--host", help="servidor Manticore (ou variável MANTICORE_HOST); informá-lo já ativa a etapa 3")
@@ -125,6 +128,8 @@ def main(argv=None) -> int:
         ap.error("--only extract não roda a etapa do Manticore; use --only consolidate (ou omita --only)")
     if args.redo and not roda_extracao:
         ap.error("--redo refaz a extração e não combina com --only consolidate")
+    if args.workers < 1:
+        ap.error("--workers precisa ser 1 ou mais")
     if roda_extracao:
         if args.entrada is None:
             ap.error("-i/--entrada é obrigatório (só pode ser omitido com --only consolidate)")
@@ -146,7 +151,7 @@ def main(argv=None) -> int:
         for lote in lotes:
             pasta = saida / "extracoes" / lote.name
             print(f"\n=== [1/{total}] Extração do lote {lote.name} -> {pasta}", file=sys.stderr)
-            ce.extrair_incremental(lote, pasta, redo=args.redo)
+            ce.extrair_incremental(lote, pasta, redo=args.redo, workers=args.workers)
             csvs.append(pasta / ce.ARQ_REIV)
     else:
         csvs, sem_relatorio = extracoes_existentes(saida)

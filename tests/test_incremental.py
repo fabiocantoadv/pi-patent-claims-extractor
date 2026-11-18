@@ -119,3 +119,32 @@ def test_saida_anterior_de_formato_desconhecido_recomeca(lote, tmp_path):
     ce.extrair_incremental(entrada, pasta)
     assert len(chamadas) == 3
     assert "velho" not in (pasta / ce.ARQ_REIV).read_text(encoding="utf-8")
+
+
+def _cria_pdf(caminho: Path, n: int) -> None:
+    """PDF mínimo com capa e um quadro reivindicatório de 2 reivindicações (texto nativo)."""
+    import pymupdf
+    doc = pymupdf.open()
+    capa = doc.new_page()
+    capa.insert_text((72, 72), f"(21) BR 11201800000{n}-1 A2\nCapa do documento numero {n} do pedido")
+    quadro = doc.new_page()
+    quadro.insert_text((72, 72), "1 / 1\nREIVINDICAÇÕES\n"
+                       f"1. Dispositivo {n}, caracterizado por compreender uma parte principal e outra parte.\n"
+                       "2. Dispositivo conforme a reivindicação 1, caracterizado por ser leve e resistente.")
+    doc.save(caminho)
+    doc.close()
+
+
+def test_paralelo_grava_o_mesmo_que_o_sequencial(tmp_path):
+    """Sem simulação: os processos de apoio rodam o `processar` de verdade."""
+    entrada = tmp_path / "lote"
+    (entrada / "A2").mkdir(parents=True)
+    for n in range(1, 8):
+        _cria_pdf(entrada / "A2" / f"BR11201800000{n}_A2.pdf", n)
+    seq, par = tmp_path / "seq", tmp_path / "par"
+    ce.extrair_incremental(entrada, seq, workers=1)
+    ce.extrair_incremental(entrada, par, workers=3)
+    linhas = (seq / ce.ARQ_REIV).read_text(encoding="utf-8")
+    assert linhas.count("Dispositivo") >= 7                       # os PDFs sintéticos foram mesmo lidos
+    for nome in (ce.ARQ_REIV, ce.ARQ_REL, ce.ARQ_PUL):
+        assert (seq / nome).read_bytes() == (par / nome).read_bytes(), nome

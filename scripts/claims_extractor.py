@@ -462,8 +462,29 @@ def _relatorio_valido(caminho: Path) -> list[dict]:
     return ok
 
 
+def _processar_pdf(args: tuple) -> tuple[list[tuple[str, str]], dict]:
+    """Versão de `processar` para os processos de apoio (precisa estar no nível do módulo)."""
+    pdf, formato_id = args
+    return processar(pdf, formato_id, False)
+
+
+def _resultados(pendentes: list[Path], formato_id: str, workers: int):
+    """Gera (pdf, linhas, rel) na mesma ordem de `pendentes`. Com workers > 1 processa vários
+    PDFs ao mesmo tempo, em processos separados (o PyMuPDF não é seguro entre threads); só o
+    processo principal grava, então a ordem e o conteúdo dos CSVs não mudam."""
+    if workers <= 1 or len(pendentes) < 2:
+        for pdf in pendentes:
+            yield (pdf, *processar(pdf, formato_id, False))
+        return
+    import multiprocessing
+    with multiprocessing.Pool(min(workers, len(pendentes))) as pool:    # encerra os processos ao sair
+        resultados = pool.imap(_processar_pdf, ((p, formato_id) for p in pendentes), chunksize=2)
+        for pdf, (linhas, rel) in zip(pendentes, resultados):
+            yield pdf, linhas, rel
+
+
 def extrair_incremental(entrada: Path, pasta: Path, redo: bool = False,
-                        formato_id: str = "completo") -> Counter:
+                        formato_id: str = "completo", workers: int = 1) -> Counter:
     """Extrai todos os PDFs de `entrada` gravando em `pasta` a cada PDF, e retoma de onde
     parou numa nova chamada.
 
@@ -471,7 +492,8 @@ def extrair_incremental(entrada: Path, pasta: Path, redo: bool = False,
     O relatório guarda, por PDF, o tamanho do CSV após as suas reivindicações (bytes_csv):
     se a execução cair entre as duas gravações, a retomada trunca o CSV nesse ponto e
     nenhuma reivindicação fica duplicada. Os PDFs são identificados pelo caminho relativo
-    a `entrada`. Com redo=True, descarta o que já foi extraído e recomeça do zero.
+    a `entrada`. Com redo=True, descarta o que já foi extraído e recomeça do zero. Com
+    workers > 1, extrai vários PDFs em paralelo (o resultado gravado é o mesmo, na mesma ordem).
     Devolve a contagem de status de todos os PDFs da pasta."""
     pasta.mkdir(parents=True, exist_ok=True)
     f_reiv, f_rel, f_pul = pasta / ARQ_REIV, pasta / ARQ_REL, pasta / ARQ_PUL
@@ -508,8 +530,7 @@ def extrair_incremental(entrada: Path, pasta: Path, redo: bool = False,
         wo = csv.writer(fo)
         wr = csv.DictWriter(fr, fieldnames=CAMPOS_REL)
         try:
-            for n, pdf in enumerate(pendentes, 1):
-                linhas, rel = processar(pdf, formato_id, False)
+            for n, (pdf, linhas, rel) in enumerate(_resultados(pendentes, formato_id, workers), 1):
                 rel["arquivo"] = chave(pdf)
                 wo.writerows(linhas)
                 fo.flush()

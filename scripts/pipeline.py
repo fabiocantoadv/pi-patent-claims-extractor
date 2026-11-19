@@ -41,7 +41,6 @@ from __future__ import annotations
 import argparse
 import csv
 import os
-import re
 import sys
 from datetime import date
 from pathlib import Path
@@ -85,10 +84,7 @@ def gerar_pedidos_final(dedup_csv: Path, destino: Path) -> int:
         for r in csv.DictReader(f):
             if r["mantido"] != "sim":
                 continue
-            corpo = r["pedido"].split("-")[0]                    # BR1120120255134
-            prefixo = re.match(r"[A-Za-z]*", corpo).group(0).upper()
-            digitos = corpo[len(prefixo):]
-            dv = digitos[len(r["numero_base"]):] if digitos.startswith(r["numero_base"]) else ""
+            prefixo, dv = dd.partes_pedido(r["pedido"], r["numero_base"])
             w.writerow([r["pedido"], r["numero_base"], prefixo, dv, r["kind"]])
             n += 1
     return n

@@ -27,6 +27,13 @@ def numero_base(arquivo: str) -> str:
         return dig[:7]
     return dig[:12]
 
+def partes_pedido(pedido: str, base: str) -> tuple[str, str]:
+    """(prefixo, dígito verificador) de um pedido como BR1120120255134-A2, dado o numero_base."""
+    corpo = pedido.split("-")[0]                              # BR1120120255134
+    prefixo = re.match(r"[A-Za-z]*", corpo).group(0).upper()
+    digitos = corpo[len(prefixo):]
+    return prefixo, (digitos[len(base):] if digitos.startswith(base) else "")
+
 def deduplicar(saida: Path, entradas: list[Path]) -> None:
     """Junta as extrações em `entradas` e grava `saida` (+ `<saida>_dedup.csv`)."""
     docs = {}                                        # pedido -> dict(base, kind, n, origem)

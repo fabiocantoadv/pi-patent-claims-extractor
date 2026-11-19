@@ -21,6 +21,7 @@ pip install -r requirements.txt     # pymupdf
 | 1b. Pastas grandes | `scripts/rodar_em_blocos.py` | `_parcial/` (retomável) |
 | 2. Junção e deduplicação | `scripts/deduplicar_concessao.py` | CSV final + `<final>_dedup.csv` |
 | 3. Título, resumo e IPC | `scripts/coletar_patentes_v4.py` | `patentes_v4_tai.csv`, `patentes_v4_nao_encontrados.csv` |
+| 4. CSV de revisão | `scripts/exportar_revisao.py` | `revisao/<AAAAMMDD>.csv` (um por RPI) |
 
 ### Rodar tudo de uma vez (orquestrador)
 
@@ -129,6 +130,27 @@ python scripts/coletar_patentes_v4.py --host <servidor>     # ou MANTICORE_HOST=
 Lê `pedidos_final.csv` (`pedido`, `numero_base`, `prefixo`, `dv`, `kind`) e casa
 `numero_base` com `application_number_norm` da tabela `patentes_v4`, via API HTTP
 (porta 9308). Só faz SELECT e só usa a biblioteca padrão.
+
+### 4. CSV de revisão (um por RPI)
+
+```bash
+python scripts/exportar_revisao.py -o <pasta_de_saida> [--dedup <pasta>] [--tac <pasta>]
+```
+
+Roda depois da consolidação, sobre a mesma pasta de saída, e junta num só arquivo o que a
+revisão humana precisa: texto das reivindicações, status e páginas da extração, `obs` e, se
+houver, os dados do Manticore. Grava `revisao/<AAAAMMDD>.csv`, um por RPI (a data do lote;
+lotes de pastas de ano diferentes com a mesma data vão para o mesmo arquivo), com uma linha
+por pedido. É coerente com a deduplicação: cada pedido aparece uma só vez, na RPI do
+documento mantido, então os arquivos podem ser carregados aos poucos sem repetição. Entram
+os pedidos com reivindicações extraídas (`ok` e `ok_lacunas`); `ok_lacunas` traz no `obs` os
+números que faltam, e o `obs` também avisa quando outra versão do mesmo pedido não teve
+reivindicações extraídas. Sem a pasta `tac/`, as colunas do Manticore saem vazias.
+
+Colunas: `rpi`, `lote`, `pedido`, `numero_base`, `kind`, `prefixo`, `dv`, `reivindicacoes`
+(uma por linha), `n_reivindicacoes`, `arquivo`, `status_extracao`, `paginas`, `n_secoes`,
+`obs`, `application_number`, `title`, `abstract`, `ipc_txt`, `ipc_json`, `first_subclass`,
+`nature`, `status_patente`, `n_registros`.
 
 ## Como a extração funciona
 

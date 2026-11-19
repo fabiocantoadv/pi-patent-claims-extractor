@@ -44,10 +44,12 @@ def deduplicar(saida: Path, entradas: list[Path]) -> None:
         for r in csv.DictReader(open(rel, encoding="utf-8")):
             if r["status"].startswith("ok") and r.get("usado_no_csv", "sim") == "sim":
                 usados[r["pedido"]] = r
+        deste = defaultdict(list)
         for pid, txt in csv.reader(open(e, encoding="utf-8")):
             if pid == "pedido": continue
-            linhas[pid].append(txt)
+            deste[pid].append(txt)
         for pid, r in usados.items():
+            linhas[pid] = deste[pid]          # mesmo pedido em mais de uma extração: vale a última (a da origem)
             kind = pid.rsplit("-", 1)[1] if "-" in pid else ""
             docs[pid] = {"base": numero_base(r["arquivo"]), "kind": kind,
                          "n": len(linhas[pid]), "origem": f"{e.parent.name}/{e.name}"}
